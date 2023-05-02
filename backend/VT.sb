@@ -1,0 +1,175 @@
+'versao 1.0 scripts monitoramento de motores
+
+'organizacao dos dados cada motor tem 50 regs comcando do valor base:(1000) - 1001 a 1050 motor 1 ...
+'1-6 = medidas - 1VX 2VZ 3VX2 4VZ2 5T 6Cor
+'7-50 = processados 7-alertas 8-estado 9-online 10-aprender(1 aprendendo)
+
+base=0
+score = 0
+
+FUNCTION inputs
+	FOR x = 0 to quantidade-1
+		PRINT "adress X: ",addrVibraX[x]," address: ",endereco[x],"\r\n"
+		vibraX[x]= GETREG(addrVibraX[x],endereco[x],0)
+		vibraX2[x]= GETREG(addrVibraX2[x],endereco[x],0)
+		vibraZ[x]= GETREG(addrVibraZ[x],endereco[x],0)
+		vibraZ2[x]= GETREG(addrVibraZ2[x],endereco[x],0)
+		corrente[x]= GETREG(addrCorrente[x],endereco[x],0)
+		temp[x]= GETREG(addrTemp[x],endereco[x],0)
+		aprender[x]=GETREG(50*x+10,199,0)
+	NEXT x
+END FUNCTION
+
+FUNCTION alertas
+	FOR x = 0 to quantidade-1
+		alerta[x]=0	
+		PRINT x,"valor de vibra: ",vibraX[x]," ,nv2: ",alertVibraXNv2[x]," ,nv1: ",alertVibraX[x],"\r\n"
+		score = 0
+		IF vibraX[x] >  alertVibraXNv2[x] THEN 
+			alerta[x]= 2 * 100000 + alerta[x]
+			score = score+10
+		Else
+			IF vibraX[x] >  alertVibraX[x] THEN 
+				alerta[x]= 1 * 100000 + alerta[x]
+				score = score+1
+			END IF
+		END IF
+		IF vibraZ[x] >  alertVibraZNv2[x] THEN 
+			alerta[x]= 2 * 10000 + alerta[x]
+			score = score+10
+		Else
+			IF vibraZ[x] >  alertVibraZ[x] THEN 
+				alerta[x]= 1 * 10000 + alerta[x]				
+				score = score+1
+			END IF
+		END IF
+		IF vibraX2[x] >  alertVibraX2Nv2[x] THEN 
+			alerta[x]= 2 * 1000 + alerta[x]
+			score = score+10
+		Else
+			IF vibraX2[x] >  alertVibraX2[x] THEN 
+				alerta[x]= 1 * 1000 + alerta[x]
+				score = score+1
+			END IF
+		END IF
+		IF vibraZ2[x] >  alertVibraZ2Nv2[x] THEN 
+			alerta[x]= 2 * 100 + alerta[x]
+			score = score+10
+		Else
+			IF vibraZ2[x] >  alertVibraZ2[x] THEN 
+				alerta[x]= 1 * 100 + alerta[x]
+				score = score+1
+			END IF
+		END IF
+		IF temp[x] >  alertTempNv2[x] THEN 
+			alerta[x]= 2 * 10 + alerta[x]
+			score = score+10
+		Else
+			IF temp[x] >  alertTemp[x] THEN 
+				alerta[x]= 1 * 10 + alerta[x]
+				score = score+1
+			END IF
+		END IF
+		IF corrente[x] >  alertCorrenteNv2[x] THEN 
+			alerta[x]= 2 + alerta[x]
+			score = score+10
+		Else
+			IF corrente[x] >  alertCorrente[x] THEN 
+				alerta[x]= 1 + alerta[x]
+				score = score+1
+			END IF
+		END IF
+		IF score > 9 THEN
+			estado[x] = 2
+		Else
+			IF score > 0 THEN
+				estado[x] = 3
+			Else
+				estado[x] = 1
+			END IF
+		END IF
+		IF vibraX[x]=80022 Then
+			online[x] = 0
+			vibraX[x] = 0
+			vibraZ[x] = 0
+			vibraX2[x] = 0
+			vibraZ2[x] = 0
+			temp[x] = 0
+			corrente[x] = 0
+		Else
+			online[x] = 1
+		end if
+	NEXT x
+END FUNCTION
+
+FUNCTION loging(x)
+	clock = "\"" & LEFT(API(102),19) & "\""
+	outRet = FILEOUT(10,0,0,"{\"node\":" & int(nodeId[x]) & ",\"time\":" & clock & ",\"vibraX\":" & vibraX[x] & ",\"vibraZ\":" & vibraZ[x] & ",\"temp\":" & temp[x] & ",\"corrente\":" & corrente[x] & ",\"vibraZ2\":" & vibraZ2[x] & ",\"vibraX2\":" & vibraX2[x])
+	outRet = FILEOUT(10,0,0,",\"alertVibraX\":" & alertVibraX[x] & ",\"alertVibraZ\":" & alertVibraZ[x] & ",\"alertTemp\":" & alertTemp[x] & ",\"alertCorrente\":" & alertCorrente[x] & ",\"alertVibraZ2\":" & alertVibraZ2[x] & ",\"alertVibraX2\":" & alertVibraX2[x])
+	outRet = FILEOUT(10,0,0,"},")
+END FUNCTION
+
+FUNCTION logAprendizado(x)
+	clock = "\"" & LEFT(API(102),19) & "\""
+	outRet = FILEOUT(11,0,0,"{" & "\"time\":" & clock & ",\"node\":" & int(nodeId[x]) & ",\"vibraX\":" & vibraX[x] & ",\"vibraZ\":" & vibraZ[x] & ",\"temp\":" & temp[x] & ",\"corrente\":" & corrente[x] & ",\"vibraZ2\":" & vibraZ2[x] & ",\"vibraX2\":" & vibraX2[x])
+	outRet = FILEOUT(11,0,0,"},")
+END FUNCTION
+
+
+
+FUNCTION outputs
+	FOR x = 0 to quantidade-1
+		WrErr = SETREG(base+x*50+1, vibraX[x], 199, 0)
+		WrErr = SETREG(base+x*50+2, vibraZ[x], 199, 0)
+		WrErr = SETREG(base+x*50+3, vibraX2[x], 199, 0)
+		WrErr = SETREG(base+x*50+4, vibraZ2[x], 199, 0)
+		WrErr = SETREG(base+x*50+5, temp[x], 199, 0)
+		WrErr = SETREG(base+x*50+6, corrente[x], 199, 0)
+		WrErr = SETREG(base+x*50+7, alerta[x], 199, 0)
+		WrErr = SETREG(base+x*50+8, estado[x], 199, 0)
+		WrErr = SETREG(base+x*50+9, online[x], 199, 0)
+	NEXT x
+END FUNCTION
+
+Function timerLoger
+	for x=0 to quantidade-1
+		cicloConter[x] = cicloConter[x]+ 2
+		if cicloConter[x]> ciclo[x] Then
+			cicloConter[x] = 0
+			loging(x)
+		end if
+	next x
+END Function
+
+Function aprendizado
+	for x=0 to quantidade-1
+		if aprender[x]=1 then
+			estado[x] = 4
+			aprenderConter[x] = aprenderConter[x]+ 2
+			if aprenderConter[x]> aprenderCiclo[x] Then
+				aprenderConter[x] = 0
+				logAprendizado(x)
+				aprenderTimeConter[x] = aprenderTimeConter[x]+1
+				if aprenderTimeConter[x] > aprenderTime[x] then
+					WrErr = SETREG(base+x*50+10, 0, 199, 0)
+					aprender[x]=0
+					aprenderTimeConter[x]=0
+				end if
+			end if
+		end if
+	next x
+end Function
+
+while(1)	
+	TimeStamp = NOW
+	
+	inputs()
+	alertas()
+	aprendizado()
+	outputs()
+	
+	timerLoger()
+	
+	while (NOW-TimeStamp < 2)	
+	WEND
+Wend
